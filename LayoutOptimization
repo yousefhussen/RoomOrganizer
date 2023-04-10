@@ -1,0 +1,54 @@
+from FromNewToOld import *
+from Room import *
+
+from rl.agents import DQNAgent
+from rl.policy import *
+from rl.memory import SequentialMemory
+import numpy as np
+
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten, Dropout
+from tensorflow.keras.optimizers import Adam
+
+env = RoomEnv(Keywords,WallRects,FurnitureRects)
+states = env.observation_space.shape
+actions = env.action_space.n
+
+def build_model(states, actions):
+    model = Sequential()
+    model.add(Flatten(input_shape=states))
+    model.add(Dense(128, activation='relu', input_shape=states))
+    model.add(Dense(128, activation='relu'))
+    model.add(Dense(actions, activation='linear'))
+    return model
+
+model = build_model(states, actions)
+
+def build_agent(model, actions, policy):
+    policy = policy
+    memory = SequentialMemory(limit=30000, window_length=1)
+    dqn = DQNAgent(model=model, memory=memory, policy=policy,
+                   nb_actions=actions, nb_steps_warmup=500, target_model_update=1e-3)
+    return dqn
+
+def fitall( env,keywords):
+    for i in keywords:
+        dqn = build_agent(model, actions, EpsGreedyQPolicy(eps=0.2))
+        dqn.compile(Adam(lr=1e-2), metrics=['mae'])
+        dqn.fit(env, nb_steps=500, visualize=True, verbose=1)
+        env.nextPlease()
+
+fitall(env,FurnitureRects)
+env.close()
+FurnitureRects2,WallRects2=env.exportRoom()
+# Furniture
+print("furniture",FurnitureRects2)
+transform12,transform14,rotation20,rotation22=ExtractFurniturePosition(offsetX,offsetZ,1,FurnitureRects2,(133.639+90),furnitureangles)
+
+for i,furniture in enumerate(FurnitureArray):
+    furniture.transform[12]=transform12[i]/100
+    furniture.transform[14]=transform14[i]/100
+Room1.objects=FurnitureArray
+# Walls
+
+writeBack(Room1)
