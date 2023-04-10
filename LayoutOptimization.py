@@ -10,9 +10,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Flatten, Dropout
 from tensorflow.keras.optimizers import Adam
 
-env = RoomEnv(Keywords,WallRects,FurnitureRects)
-states = env.observation_space.shape
-actions = env.action_space.n
+
 
 def build_model(states, actions):
     model = Sequential()
@@ -22,7 +20,7 @@ def build_model(states, actions):
     model.add(Dense(actions, activation='linear'))
     return model
 
-model = build_model(states, actions)
+
 
 def build_agent(model, actions, policy):
     policy = policy
@@ -31,24 +29,30 @@ def build_agent(model, actions, policy):
                    nb_actions=actions, nb_steps_warmup=500, target_model_update=1e-3)
     return dqn
 
-def fitall( env,keywords):
+def fitall( env,keywords,model,actions):
     for i in keywords:
         dqn = build_agent(model, actions, EpsGreedyQPolicy(eps=0.2))
         dqn.compile(Adam(lr=1e-2), metrics=['mae'])
         dqn.fit(env, nb_steps=500, visualize=True, verbose=1)
         env.nextPlease()
 
-fitall(env,FurnitureRects)
-env.close()
-FurnitureRects2,WallRects2=env.exportRoom()
-# Furniture
-print("furniture",FurnitureRects2)
-transform12,transform14,rotation20,rotation22=ExtractFurniturePosition(offsetX,offsetZ,1,FurnitureRects2,(133.639+90),furnitureangles)
+def main_procces(json_data=None):
+    FurnitureRects,WallRects,Keywords,FurnitureArray,Room1,pivot= pre_processing(json_data)
+    env = RoomEnv(Keywords,WallRects,FurnitureRects)
+    states = env.observation_space.shape
+    actions = env.action_space.n
+    model = build_model(states, actions)
+    fitall(env,FurnitureRects,model=model,actions=actions)
+    env.close()
+    FurnitureRects2,WallRects2=env.exportRoom()
+    # Furniture
+    print("furniture",FurnitureRects2)
+    transform12,transform14=ExtractFurniturePosition(FurnitureRects2,(133.639+90),pivot)
 
-for i,furniture in enumerate(FurnitureArray):
-    furniture.transform[12]=transform12[i]/100
-    furniture.transform[14]=transform14[i]/100
-Room1.objects=FurnitureArray
-# Walls
+    for i,furniture in enumerate(FurnitureArray):
+        furniture.transform[12]=transform12[i]/100
+        furniture.transform[14]=transform14[i]/100
+    Room1.objects=FurnitureArray
+    # Walls
+    return Room1
 
-writeBack(Room1)
